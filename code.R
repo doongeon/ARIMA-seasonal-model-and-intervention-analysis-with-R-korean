@@ -1,5 +1,6 @@
 # 시계열 분석 라이브러리
 library(TSA)
+library(forecast)
 
 # 데이터 불러오기
 data(airmiles)
@@ -118,32 +119,53 @@ lines(hat, col="red", lty=2) # 적합값 그래프
 # 개입 사건 이전 데이터를 통해 예측
 fcast <- forecast(
   model,
-  h=70, level = 0
+  h=50, level = 0.95
 )
-plot(fcast)
-lines(ts(data), col="red", lty=1)
-# 원래 데이터 (빨강)
+
+#시각화
+plot(
+  fcast, 
+  col = 12,
+  xlab = 'lag',
+  ylab = 'log_passengers'
+)
+lines(ts(data), col="black", lty=2, lwd=2) # 실제 데이터
+
+legend(
+  'topright',
+  legend=c('predict', 'real', 'CI (95%)'),
+  lty=c(1,2,1),
+  col=c(12,1, 'gray'), 
+  lwd=c(3,2,15)
+)
+
+abline(v=69, col='red') # 개입 시점
+# 원래 데이터 (검정)
 # 예측한 데이터 (파랑)
 # 사건 당시 큰 충격이 있고 시간이 지남에 따라 그 충격이 점차 사라지는것으로 보임
 
 # 예상되는 충격의 모습
-pulse <- (seq(airmiles) == 69) * 1 # 곱해지는 상수는 추정해야함
+# 펄스함수로 대략적인 충격을 구현해보기
+pulse <- (seq(airmiles) == 69) * -1 # 곱해지는 상수는 추정해야함
 impact <- pulse
 impact
-
 for (a in 69+1:length(impact)) {
   impact[a] = impact[a-1] * (9/10) # 곱해지는 상수는 추정해야함
 }
 
-# 대략적인 모습 시각화
-ts.plot(
-  -impact
+layout(
+  matrix(c(1,2), ncol = 2), 
 )
 
-library(forecast)
+# 대략적인 모습 시각화
+impact <- ts(impact)
+plot(
+  main = '대략적인 개입의 모습',
+  impact
+)
 
 
-# arima 함수로 구현
+# 개입사건을 포함한 모델링
 model <- arima(
   log(airmiles),
   order=c(0,1,1),
@@ -159,12 +181,35 @@ model <- arima(
 # 추정된 계수 (위에서 언급한 상수)
 model
 # 추정된 값
-plot(fitted(model))
+plot(
+  main = 'ARIMA model',
+  fitted(model),
+  col=12,
+  lwd = 2,
+  lty=2
+)
+
+lines(
+  data,
+  col=1,
+  lwd = 2,
+  lty=1
+) # 실제 데이터
+
+legend(
+  'bottomright',
+  legend=c('predict', 'real'), 
+  lty=2:1,
+  col=c(12,1),
+  lwd=2
+)
+# 개입사건의 영향이 잘 추정된것으로 보임
 
 
 # 잔차분석
 res <- model$residuals
 
+layout(1)
 plot(res)
 
 
@@ -177,9 +222,12 @@ Box.test(res, lag=12, type='Ljung')
 
 
 layout(1)
-ts.plot(res)
+plot(
+  main = 'residual',
+  res
+)
+
 # 잔차가 튀는 부분이 존재함
 # 이런 모습도 정상 시계열이라고할 수 있는가?
-
 # 변동성 집중모델로 설명 가능.
 # 추후 진행
