@@ -1,0 +1,1 @@
+# ARIMA-seasonal-model-and-intervention-analysis-with-R-korean
